@@ -1,0 +1,109 @@
+# This .gitignore file is for a Unity iOS project.
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+
+# User-specific files #
+#######################
+*.rsuser
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.unityproj
+*.blend*
+
+# Unity generated files #
+#########################
+Temp/
+Obj/
+Build/
+Builds/
+Library/
+logs/
+UserSettings/
+MemoryCaptures/
+AssetBundleBrowserCache/
+ScriptAssemblies/
+ScriptMapper/
+
+# Auto-generated VS/MD/VSCode files #
+#####################################
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.VC.VC.opendb
+
+# Unity3D generated meta files #
+################################
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Unity3D Generated File On Crash Reports #
+###########################################
+sysinfo.txt
+
+# Builds #
+##########
+*.apk
+*.aab
+*.xcodeproj
+*.xcworkspace
+*.xcuserdata
+*.build/
+*.ipa
+
+# Unity Addressables #
+######################
+/AddressableAssetsData/*
+
+# Visual Studio #
+#################
+.vscode/
+
+# Rider #
+#########
+.idea/
+*.sln.iml
+*.sln.ide
+
+# JetBrains Rider #
+###################
+.idea/
+.idea/*
+*.sln.iml
+*.iml
+*.ipr
+*.iws
+
+# Other #
+#########
+.vscode/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.idea/
+.DS_Store

@@ -28,8 +28,6 @@ public class Main : MonoBehaviour
             Debug.Log("AppCoins SDK isAvailable");
             Debug.Log("Adress: " + AppCoinsSDK.Instance.GetTestingWalletAddress());
 
-            GetAllPurchases();
-
             products = await AppCoinsSDK.Instance.GetProducts();
             // OR 
             // var selectedProducts = await AppCoinsSDK.Instance.GetProducts(new string[] { "antifreeze", "gas" });

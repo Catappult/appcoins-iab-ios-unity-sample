@@ -7,6 +7,8 @@ using UnityEngine.Networking;
 
 public class Main : MonoBehaviour
 {
+    public static Main Instance { get; private set; }  // Singleton Instance
+
     public int gas = 4;
     
     public Image gasLevel; 
@@ -19,21 +21,36 @@ public class Main : MonoBehaviour
 
     ProductData[] products;
 
+    private void Awake()
+    {
+        // Singleton enforcement
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);  // Destroy duplicate instances
+            return;
+        }
+        
+        Instance = this;
+        DontDestroyOnLoad(gameObject); // Persist across scenes
+
+        AppCoinsPurchaseManager.OnPurchaseUpdated += HandlePurchase; // Subscribe to purchase updates
+    }
+
     async void Start()
     {
         var sdkAvailable = await AppCoinsSDK.Instance.IsAvailable();
+        Debug.Log("AppCoins SDK isAvailable: " + sdkAvailable);
 
         if (sdkAvailable) 
         {   
             Debug.Log("AppCoins SDK isAvailable");
-            Debug.Log("Adress: " + AppCoinsSDK.Instance.GetTestingWalletAddress());
+            Debug.Log("Address: " + AppCoinsSDK.Instance.GetTestingWalletAddress());
 
             products = await AppCoinsSDK.Instance.GetProducts();
             // OR 
             // var selectedProducts = await AppCoinsSDK.Instance.GetProducts(new string[] { "antifreeze", "gas" });
         }
     }
-
 
     public void Drive()
     {
@@ -48,10 +65,13 @@ public class Main : MonoBehaviour
     async public void BuyGas()
     {   
         var purchaseResponse = await AppCoinsSDK.Instance.Purchase("antifreeze");
+        HandlePurchase(purchaseResponse);
+    }
 
+    private async void HandlePurchase(PurchaseResponse purchaseResponse)
+    {
         if (purchaseResponse.State == AppCoinsSDK.PURCHASE_STATE_SUCCESS)
-            {
-
+        {
             string packageName = purchaseResponse.Purchase.Verification.Data.PackageName;
             string productId = purchaseResponse.Purchase.Verification.Data.ProductId;
             string purchaseToken = purchaseResponse.Purchase.Verification.Data.PurchaseToken;
@@ -66,12 +86,7 @@ public class Main : MonoBehaviour
                 {
                     Debug.Log("Purchase consumed successfully");
 
-                    if (gas < 4) {
-                        gas += 1;
-                    }
-                    Debug.Log("New gas value: " + gas);
-
-                    SetGasLevel();
+                    AddGas();
                 }
                 else
                 {
@@ -90,9 +105,9 @@ public class Main : MonoBehaviour
         var purchases = await AppCoinsSDK.Instance.GetAllPurchases();
         Debug.Log("––––––––––––––––––––––");
         Debug.Log("ALL PURCHASES");
-        for (int i = 0; i < purchases.Length; i++)
+        foreach (var purchase in purchases)
         {
-            string purchaseJson = JsonUtility.ToJson(purchases[i], true); // Serialize with pretty print
+            string purchaseJson = JsonUtility.ToJson(purchase, true); // Serialize with pretty print
             Debug.Log(purchaseJson);
         }
     }
@@ -112,9 +127,9 @@ public class Main : MonoBehaviour
         var purchases = await AppCoinsSDK.Instance.GetUnfinishedPurchases();
         Debug.Log("––––––––––––––––––––––");
         Debug.Log("UNFINISHED PURCHASES");
-        for (int i = 0; i < purchases.Length; i++)
+        foreach (var purchase in purchases)
         {
-            string purchaseJson = JsonUtility.ToJson(purchases[i], true); // Serialize with pretty print
+            string purchaseJson = JsonUtility.ToJson(purchase, true); // Serialize with pretty print
             Debug.Log(purchaseJson);
         }
     }
@@ -142,12 +157,24 @@ public class Main : MonoBehaviour
         }
     }
 
+    public void AddGas()
+    {
+        if (gas < 4) {
+            gas += 1;
+        }
+
+        SetGasLevel();
+    }
+
     private void SetGasLevel()
     {
-        if (gas == 4) { gasLevel.sprite = level4; }
-        if (gas == 3) { gasLevel.sprite = level3; }
-        if (gas == 2) { gasLevel.sprite = level2; }
-        if (gas == 1) { gasLevel.sprite = level1; }
-        if (gas == 0) { gasLevel.sprite = level0; }
+        switch (gas)
+        {
+            case 4: gasLevel.sprite = level4; break;
+            case 3: gasLevel.sprite = level3; break;
+            case 2: gasLevel.sprite = level2; break;
+            case 1: gasLevel.sprite = level1; break;
+            case 0: gasLevel.sprite = level0; break;
+        }
     }
 }

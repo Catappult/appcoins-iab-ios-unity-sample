@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -11,7 +12,8 @@ public class Main : MonoBehaviour
 
     public int gas = 4;
     
-    public Image gasLevel; 
+    public Image gasLevelPortrait; 
+    public Image gasLevelLandscape; 
 
     public Sprite level4;
     public Sprite level3;
@@ -19,13 +21,19 @@ public class Main : MonoBehaviour
     public Sprite level1;
     public Sprite level0;
 
-    ProductData[] products;
+    public bool isSignedIn = false; 
+    
+    public Image signInPortrait; 
+    public Image signInLandscape; 
 
-    private void Awake()
-    {
+    public Sprite signedIn;
+    public Sprite signedOut;
+
+    Product[] products;
+
+    private void Awake() {
         // Singleton enforcement
-        if (Instance != null && Instance != this)
-        {
+        if (Instance != null && Instance != this) {
             Destroy(gameObject);  // Destroy duplicate instances
             return;
         }
@@ -33,27 +41,51 @@ public class Main : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject); // Persist across scenes
 
-        AppCoinsPurchaseManager.OnPurchaseUpdated += HandlePurchase; // Subscribe to purchase updates
+        AppCoinsPurchaseManager.OnPurchaseUpdated += HandlePurchaseIntent; // Subscribe to purchase updates
     }
 
-    async void Start()
-    {
+    async void Start() {
         var sdkAvailable = await AppCoinsSDK.Instance.IsAvailable();
         Debug.Log("AppCoins SDK isAvailable: " + sdkAvailable);
 
-        if (sdkAvailable) 
-        {   
-            Debug.Log("AppCoins SDK isAvailable");
+        if (sdkAvailable) {
             Debug.Log("Address: " + AppCoinsSDK.Instance.GetTestingWalletAddress());
 
-            products = await AppCoinsSDK.Instance.GetProducts();
+            var productsResult = await AppCoinsSDK.Instance.GetProducts();
+            if (productsResult.IsSuccess) { 
+                products = productsResult.Value;
+                
+                Debug.Log("––––––––––––––––––––––");
+                Debug.Log("ALL PRODUCTS");
+
+                foreach (var product in products) {
+                    string productJson = JsonUtility.ToJson(product, true); 
+                    Debug.Log(productJson);
+                }
+            } else {
+                Debug.Log("Failed to get products: " + productsResult.Error);
+            }
+
             // OR 
-            // var selectedProducts = await AppCoinsSDK.Instance.GetProducts(new string[] { "antifreeze", "gas" });
+
+            // var selectedProductsResult = await AppCoinsSDK.Instance.GetProducts(new string[] { "antifreeze", "gas" });
+            // if (selectedProductsResult.IsSuccess) { 
+            //     var selectedProducts = selectedProductsResult.Value;
+
+            //     Debug.Log("––––––––––––––––––––––");
+            //     Debug.Log("SELECTED PRODUCTS");
+
+            //     foreach (var product in selectedProducts) {
+            //         string productJson = JsonUtility.ToJson(product, true); 
+            //         Debug.Log(productJson);
+            //     }
+            // }
+
+            ConsumeUnfinishedPurchases();
         }
     }
 
-    public void Drive()
-    {
+    public void Drive() {
         if (gas > 0) {
             gas -= 1;
         }
@@ -62,103 +94,166 @@ public class Main : MonoBehaviour
         SetGasLevel();
     }
 
-    async public void BuyGas()
-    {   
-        var purchaseResponse = await AppCoinsSDK.Instance.Purchase("antifreeze");
-        HandlePurchase(purchaseResponse);
+    async public void BuyGas() {   
+        var purchaseResult = await AppCoinsSDK.Instance.Purchase("antifreeze");
+        HandlePurchase(purchaseResult);
     }
 
-    private async void HandlePurchase(PurchaseResponse purchaseResponse)
-    {
-        if (purchaseResponse.State == AppCoinsSDK.PURCHASE_STATE_SUCCESS)
-        {
-            string packageName = purchaseResponse.Purchase.Verification.Data.PackageName;
-            string productId = purchaseResponse.Purchase.Verification.Data.ProductId;
-            string purchaseToken = purchaseResponse.Purchase.Verification.Data.PurchaseToken;
+    private async void HandlePurchaseIntent(PurchaseIntent purchaseIntent) {
+        if (isSignedIn) {
+            var purchaseResult = await AppCoinsSDK.Instance.ConfirmPurchaseIntent();
+            HandlePurchase(purchaseResult);
+        } else {
+            Debug.Log("Ignored Purchase Intent because the user is signed out.");
+        }
+    }
 
-            bool isValid = await VerifyPurchaseOnServer(packageName, productId, purchaseToken);
+    private async void HandlePurchase(AppCoinsSDKPurchaseResult purchaseResult) {
+        switch (purchaseResult.State) {
+            case AppCoinsSDK.PURCHASE_STATE_SUCCESS:
+                switch (purchaseResult.Value.VerificationResult) {
+                    case AppCoinsSDK.PURCHASE_VERIFICATION_STATE_VERIFIED:
+                        // Consume the item and give it to the user
+                        string packageName = purchaseResult.Value.Purchase.Verification.Data.PackageName;
+                        string productId = purchaseResult.Value.Purchase.Verification.Data.ProductId;
+                        string purchaseToken = purchaseResult.Value.Purchase.Verification.Data.PurchaseToken;
 
-            if (isValid)
-            {
-                var response = await AppCoinsSDK.Instance.ConsumePurchase(purchaseResponse.Purchase.Sku);
+                        if (await VerifyPurchaseOnServer(packageName, productId, purchaseToken)) {
+                            var consumeResult = await AppCoinsSDK.Instance.ConsumePurchase(purchaseResult.Value.Purchase.Sku);
 
-                if (response.Success)
-                {
-                    Debug.Log("Purchase consumed successfully");
-
-                    AddGas();
+                            if (consumeResult.IsSuccess) {
+                                Debug.Log("Purchase consumed successfully");
+                                AddGas();
+                            } else {
+                                Debug.Log("Error consuming purchase: " + consumeResult.Error);
+                            }
+                        } else {
+                            Debug.Log("Failed to verify purchase on server.");
+                        }   
+                        break;  
+                    case AppCoinsSDK.PURCHASE_VERIFICATION_STATE_UNVERIFIED:
+                        // Handle unverified purchase according to your game logic
+                        break;  
                 }
-                else
-                {
-                    Debug.Log("Error consuming purchase: " + response.Error);
+                break;
+            case AppCoinsSDK.PURCHASE_STATE_PENDING:
+                // Handle pending purchase according to your game logic
+                Debug.Log("Purchase is pending.");
+                break;
+            case AppCoinsSDK.PURCHASE_STATE_USER_CANCELLED:
+                // Handle cancelled purchase according to your game logic
+                Debug.Log("Purchase was cancelled.");
+                break;
+            case AppCoinsSDK.PURCHASE_STATE_FAILED:
+                // Handle failed purchase according to your game logic
+                Debug.Log("Purchase failed with error" + purchaseResult.Error);
+                break;
+        }
+    }
+
+    async public void GetPurchaseIntent()
+    {
+        var intentResult = await AppCoinsSDK.Instance.GetPurchaseIntent();
+
+        if (intentResult.IsSuccess && intentResult.Value != null) {
+            var intent = intentResult.Value;
+            string intentJson = JsonUtility.ToJson(intent, true); 
+
+            Debug.Log("––––––––––––––––––––––");
+            Debug.Log("PURCHASE INTENT");
+            Debug.Log(intentJson);
+
+            HandlePurchaseIntent(intent);
+        }
+    }
+
+    async public void GetAllPurchases() {
+        var purchasesResult = await AppCoinsSDK.Instance.GetAllPurchases();
+
+        if (purchasesResult.IsSuccess) {
+            var purchases = purchasesResult.Value;
+
+            Debug.Log("––––––––––––––––––––––");
+            Debug.Log("ALL PURCHASES");
+
+            string purchasesJson = JsonUtility.ToJson(purchases, true); 
+            Debug.Log(purchasesJson);
+        }
+    }
+
+    async public void GetLatestPurchase(string sku) {
+        var latestPurchaseResult = await AppCoinsSDK.Instance.GetLatestPurchase(sku);
+        
+        if (latestPurchaseResult.IsSuccess) {
+            if (latestPurchaseResult.Value == null) {
+                Debug.Log("No latest purchase found for SKU: " + sku);
+                return;
+            }
+
+            var purchase = latestPurchaseResult.Value;
+            string purchaseJson = JsonUtility.ToJson(purchase, true); 
+
+            Debug.Log("––––––––––––––––––––––");
+            Debug.Log("LATEST PURCHASE");
+            Debug.Log(purchaseJson);
+        } else {
+            Debug.Log("Latest purchase query failed with error");
+            Debug.Log(latestPurchaseResult.Error);
+        }
+    }
+
+    async public void GetUnfinishedPurchases() {
+        var unfinishedPurchasesResult = await AppCoinsSDK.Instance.GetUnfinishedPurchases();
+
+        if (unfinishedPurchasesResult.IsSuccess) {
+            var purchases = unfinishedPurchasesResult.Value;
+
+            Debug.Log("––––––––––––––––––––––");
+            Debug.Log("UNFINISHED PURCHASES");
+
+            string purchasesJson = JsonUtility.ToJson(purchases, true); 
+            Debug.Log(purchasesJson);
+        }
+    }
+
+    async public void ConsumeUnfinishedPurchases() {
+        var unfinishedPurchasesResult = await AppCoinsSDK.Instance.GetUnfinishedPurchases();
+
+        if (unfinishedPurchasesResult.IsSuccess) {
+            var purchases = unfinishedPurchasesResult.Value;
+
+            foreach (var purchase in purchases) {
+                var consumeResult = await AppCoinsSDK.Instance.ConsumePurchase(purchase.Sku);
+
+                if (consumeResult.IsSuccess) {
+                    Debug.Log("Unfinished Purchase consumed successfully");
+                    AddGas();
+                } else {
+                    Debug.Log("Error consuming unfinished purchase: " + consumeResult.Error);
                 }
             }
-            else
-            {
-                Debug.LogError("Failed to verify purchase.");
-            }            
         }
     }
 
-    async public void GetAllPurchases()
-    {
-        var purchases = await AppCoinsSDK.Instance.GetAllPurchases();
-        Debug.Log("––––––––––––––––––––––");
-        Debug.Log("ALL PURCHASES");
-        foreach (var purchase in purchases)
-        {
-            string purchaseJson = JsonUtility.ToJson(purchase, true); // Serialize with pretty print
-            Debug.Log(purchaseJson);
-        }
-    }
-
-    async public void GetLatestPurchase(string sku)
-    {
-        var purchase = await AppCoinsSDK.Instance.GetLatestPurchase(sku);
-        string purchaseJson = JsonUtility.ToJson(purchase, true); // Serialize with pretty print
-
-        Debug.Log("––––––––––––––––––––––");
-        Debug.Log("LATEST PURCHASE");
-        Debug.Log(purchaseJson);
-    }
-
-    async public void GetUnfinishedPurchases()
-    {
-        var purchases = await AppCoinsSDK.Instance.GetUnfinishedPurchases();
-        Debug.Log("––––––––––––––––––––––");
-        Debug.Log("UNFINISHED PURCHASES");
-        foreach (var purchase in purchases)
-        {
-            string purchaseJson = JsonUtility.ToJson(purchase, true); // Serialize with pretty print
-            Debug.Log(purchaseJson);
-        }
-    }
-
-    async public Task<bool> VerifyPurchaseOnServer(string packageName, string productId, string purchaseToken)
-    {
+    async public Task<bool> VerifyPurchaseOnServer(string packageName, string productId, string purchaseToken) {
         string url = $"https://api.ios.trivialdrive.aptoide.com/iap/validate?package_name={packageName}&product_id={productId}&token={purchaseToken}";
 
-        using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
-        {
+        using (UnityWebRequest webRequest = UnityWebRequest.Get(url)) {
             var operation = webRequest.SendWebRequest();
 
             while (!operation.isDone)
                 await Task.Yield();
 
-            if (webRequest.result == UnityWebRequest.Result.Success && webRequest.responseCode == 200)
-            {
+            if (webRequest.result == UnityWebRequest.Result.Success && webRequest.responseCode == 200) {
                 return true;
-            }
-            else
-            {
+            } else {
                 Debug.Log($"Failed to verify purchase: {webRequest.error}");
                 return false;
             }
         }
     }
 
-    public void AddGas()
-    {
+    public void AddGas() {
         if (gas < 4) {
             gas += 1;
         }
@@ -166,15 +261,49 @@ public class Main : MonoBehaviour
         SetGasLevel();
     }
 
-    private void SetGasLevel()
-    {
-        switch (gas)
-        {
-            case 4: gasLevel.sprite = level4; break;
-            case 3: gasLevel.sprite = level3; break;
-            case 2: gasLevel.sprite = level2; break;
-            case 1: gasLevel.sprite = level1; break;
-            case 0: gasLevel.sprite = level0; break;
+    private void SetGasLevel() {
+        switch (gas) {
+            case 4: 
+                gasLevelPortrait.sprite = level4;
+                gasLevelLandscape.sprite = level4; 
+                break;
+            case 3: 
+                gasLevelPortrait.sprite = level3;
+                gasLevelLandscape.sprite = level3; 
+                break;
+            case 2: 
+                gasLevelPortrait.sprite = level2;
+                gasLevelLandscape.sprite = level2; 
+                break;
+            case 1: 
+                gasLevelPortrait.sprite = level1;
+                gasLevelLandscape.sprite = level1; 
+                break;
+            case 0: 
+                gasLevelPortrait.sprite = level0;
+                gasLevelLandscape.sprite = level0; 
+                break;
         }
+    }
+
+    public void ToggleSignIn() {
+        if (isSignedIn) {
+            SignOut();
+        } else {
+            SignIn();
+        }
+    }
+
+    public void SignIn() {
+        isSignedIn = true;
+        signInPortrait.sprite = signedIn;
+        signInLandscape.sprite = signedIn;
+        GetPurchaseIntent();
+    }
+
+    public void SignOut() {
+        isSignedIn = false;
+        signInPortrait.sprite = signedOut;
+        signInLandscape.sprite = signedOut;
     }
 }

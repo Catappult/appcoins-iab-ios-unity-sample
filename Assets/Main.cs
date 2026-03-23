@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Networking;
+using AppCoins;
 
 // ================================================================================================
 // AppCoins SDK Unity Plugin Demo Application

@@ -4,15 +4,6 @@ using UnityEditor.Callbacks;
 using UnityEditor.iOS.Xcode;
 using System.IO;
 
-// LOCAL TESTING ONLY.
-//
-// Allows the app to reach the local trivial-drive-service over plain HTTP on a
-// LAN IP (e.g. http://192.168.1.132:8000) from a physical device. App Transport
-// Security blocks cleartext HTTP by default; NSAllowsLocalNetworking permits
-// connections to reserved/private ranges (incl. 192.168.0.0/16) without HTTPS.
-//
-// Remove this (or the exception) before shipping — production should call the
-// server over HTTPS.
 public static class TrivialDriveBuildPostProcess
 {
     [PostProcessBuild]
@@ -27,6 +18,11 @@ public static class TrivialDriveBuildPostProcess
         var plist = new PlistDocument();
         plist.ReadFromFile(plistPath);
 
+        // Required by Apple for apps that sell digital goods via StoreKit.
+        plist.root.SetBoolean("MKSellsDigitalGoods", true);
+
+        // LOCAL TESTING ONLY — allows plain HTTP to LAN IPs for the local trivial-drive-service.
+        // Remove before shipping; production must use HTTPS.
         PlistElementDict ats = plist.root.values.ContainsKey("NSAppTransportSecurity")
             ? plist.root["NSAppTransportSecurity"].AsDict()
             : plist.root.CreateDict("NSAppTransportSecurity");

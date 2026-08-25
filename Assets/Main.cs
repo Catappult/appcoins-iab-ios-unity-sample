@@ -6,16 +6,15 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Networking;
 using UnityEngine.Purchasing;
-using AppCoins.Unity;
 
 // ================================================================================================
-// Apple In-App Purchases via Unity IAP 5.x - Trivial Drive
+// StoreKit In-App Purchases via Unity IAP 5.x - Trivial Drive
 // ================================================================================================
-// This class integrates Apple in-app purchases into the Trivial Drive sample using Unity's official
-// In-App Purchasing package (com.unity.purchasing 5.x), which wraps StoreKit on iOS.
+// Integrates Apple StoreKit in-app purchases using Unity IAP 5.x (com.unity.purchasing),
+// which wraps StoreKit natively on iOS — no custom Swift bridge required.
 //
-// Unity IAP 5.x uses the StoreController service API (UnityIAPServices) with event-driven callbacks,
-// replacing the older 4.x IStoreListener / ConfigurationBuilder / ProcessPurchase model.
+// Unity IAP 5.x uses an event-driven StoreController API (UnityIAPServices), replacing the
+// older 4.x IStoreListener / ConfigurationBuilder / ProcessPurchase model.
 //
 // Key Features Demonstrated:
 // - Singleton pattern for persistent purchase management across scenes
@@ -81,8 +80,6 @@ public class Main : MonoBehaviour
         if (storeController != null) {
             return; // Already initialized
         }
-
-        await AppCoinsIAP.ConfigureStoreAsync(AppCoinsStoreMode.AppCoins);
 
         storeController = UnityIAPServices.StoreController();
 
@@ -268,10 +265,7 @@ public class Main : MonoBehaviour
     //    to confirm the receipt is genuine and matches the expected product.
     // 4. Return success only if Apple confirms the purchase is valid.
     async public Task<bool> VerifyPurchaseOnServer(string productId, IOrderInfo orderInfo) {
-        bool isAptoide = AppCoinsIAP.SelectedStore == AppCoinsIAP.AppCoinsStoreName;
-        string url = isAptoide
-            ? "https://api.ios.trivialdrive.aptoide.com/iap/aptoide/validate"
-            : "https://api.ios.trivialdrive.aptoide.com/iap/apple/validate";
+        string url = "https://api.ios.trivialdrive.aptoide.com/iap/apple/validate";
 
         var body = new PurchaseValidationRequest {
             productId = productId,

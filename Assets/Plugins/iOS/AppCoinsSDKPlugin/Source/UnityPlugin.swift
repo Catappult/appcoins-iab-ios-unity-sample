@@ -264,7 +264,7 @@ public struct AppCoinsSDKErrorData {
     @objc public func handleDeepLink(url: String, completion: @escaping ([String: Any]) -> Void) {
         Task {
             guard let urlObject = URL(string: url) else {
-                let invalidURLError: AppCoinsSDKError = .systemError(message: "Invalid URL", description: "Invalid URL at UnityPlugin.swift:handleDeepLink")
+                let invalidURLError: AppCoinsSDKError = .systemError("Invalid URL at UnityPlugin.swift:handleDeepLink")
                 completion(["IsSuccess": false, "Error": AppCoinsSDKErrorData(error: invalidURLError).dictionaryRepresentation])
                 return
             }
@@ -285,7 +285,7 @@ public struct AppCoinsSDKErrorData {
                 completion( ["IsSuccess": true, "Value": products.map { ProductData(product: $0).dictionaryRepresentation }] )
             } catch {
                 guard let error = error as? AppCoinsSDKError else {
-                    let unknownError: AppCoinsSDKError = .unknown(message: "Unknown Error", description: "Unknown Error at UnityPlugin.swift:getProducts")
+                    let unknownError: AppCoinsSDKError = .unknown("Unknown Error at UnityPlugin.swift:getProducts")
                     completion(["IsSuccess": false, "Error": AppCoinsSDKErrorData(error: unknownError).dictionaryRepresentation])
                     return
                 }
@@ -299,7 +299,7 @@ public struct AppCoinsSDKErrorData {
         Task {
             do {
                 guard let product = try await Product.products(for: [sku]).first else {
-                    let error: AppCoinsSDKError = .systemError(message: "Product Not Found", description: "Product not found to perform purchase at UnityPlugin.swift:purchase")
+                    let error: AppCoinsSDKError = .systemError("Product not found to perform purchase at UnityPlugin.swift:purchase")
                     completion(["State": "failed", "Error": AppCoinsSDKErrorData(error: error).dictionaryRepresentation])
                     return
                 }
@@ -340,7 +340,7 @@ public struct AppCoinsSDKErrorData {
                 completion(response)
             } catch {
                 guard let error = error as? AppCoinsSDKError else {
-                    let unknownError: AppCoinsSDKError = .unknown(message: "Unknown Error", description: "Unknown Error at UnityPlugin.swift:purchase")
+                    let unknownError: AppCoinsSDKError = .unknown("Unknown Error at UnityPlugin.swift:purchase")
                     completion(["State": "failed", "Error": AppCoinsSDKErrorData(error: unknownError).dictionaryRepresentation])
                     return
                 }
@@ -357,7 +357,7 @@ public struct AppCoinsSDKErrorData {
                 completion( ["IsSuccess": true, "Value": purchases.map { PurchaseData(purchase: $0).dictionaryRepresentation }] )
             } catch {
                 guard let error = error as? AppCoinsSDKError else {
-                    let unknownError: AppCoinsSDKError = .unknown(message: "Unknown Error", description: "Unknown Error at UnityPlugin.swift:getAllPurchases")
+                    let unknownError: AppCoinsSDKError = .unknown("Unknown Error at UnityPlugin.swift:getAllPurchases")
                     completion(["IsSuccess": false, "Error": AppCoinsSDKErrorData(error: unknownError).dictionaryRepresentation])
                     return
                 }
@@ -377,7 +377,7 @@ public struct AppCoinsSDKErrorData {
                 }
             } catch {
                 guard let error = error as? AppCoinsSDKError else {
-                    let unknownError: AppCoinsSDKError = .unknown(message: "Unknown Error", description: "Unknown Error at UnityPlugin.swift:getLatestPurchase")
+                    let unknownError: AppCoinsSDKError = .unknown("Unknown Error at UnityPlugin.swift:getLatestPurchase")
                     completion(["IsSuccess": false, "Error": AppCoinsSDKErrorData(error: unknownError).dictionaryRepresentation])
                     return
                 }
@@ -394,7 +394,7 @@ public struct AppCoinsSDKErrorData {
                 completion( ["IsSuccess": true, "Value": purchases.map { PurchaseData(purchase: $0).dictionaryRepresentation }] )
             } catch {
                 guard let error = error as? AppCoinsSDKError else {
-                    let unknownError: AppCoinsSDKError = .unknown(message: "Unknown Error", description: "Unknown Error at UnityPlugin.swift:getUnfinishedPurchases")
+                    let unknownError: AppCoinsSDKError = .unknown("Unknown Error at UnityPlugin.swift:getUnfinishedPurchases")
                     completion(["IsSuccess": false, "Error": AppCoinsSDKErrorData(error: unknownError).dictionaryRepresentation])
                     return
                 }
@@ -408,7 +408,7 @@ public struct AppCoinsSDKErrorData {
         Task {
             do {
                 guard let purchase = try await Purchase.all().first(where: { $0.sku == sku && ($0.state == "ACKNOWLEDGED" || $0.state == "PENDING") }) else {
-                    let purchaseError: AppCoinsSDKError = .systemError(message: "Purchase Not Found", description: "Purchase not found when attempting to consume at UnityPlugin.swift:consumePurchase")
+                    let purchaseError: AppCoinsSDKError = .systemError("Purchase not found when attempting to consume at UnityPlugin.swift:consumePurchase")
                     completion(["IsSuccess": false, "Error": AppCoinsSDKErrorData(error: purchaseError).dictionaryRepresentation])
                     return
                 }
@@ -417,7 +417,7 @@ public struct AppCoinsSDKErrorData {
                 completion(["IsSuccess": true])
             } catch {
                 guard let error = error as? AppCoinsSDKError else {
-                    let unknownError: AppCoinsSDKError = .unknown(message: "Unknown Error", description: "Unknown Error at UnityPlugin.swift:consumePurchase")
+                    let unknownError: AppCoinsSDKError = .unknown("Unknown Error at UnityPlugin.swift:consumePurchase")
                     completion(["IsSuccess": false, "Error": AppCoinsSDKErrorData(error: unknownError).dictionaryRepresentation])
                     return
                 }
@@ -446,7 +446,7 @@ public struct AppCoinsSDKErrorData {
         Task {
             do {
                 guard let intent = Purchase.intent else {
-                    let error: AppCoinsSDKError = .systemError(message: "Intent Not Found", description: "Intent not found to confirm purchase intent at UnityPlugin.swift:confirmPurchaseIntent")
+                    let error: AppCoinsSDKError = .systemError("Intent not found to confirm purchase intent at UnityPlugin.swift:confirmPurchaseIntent")
                     completion(["State": "failed", "Error": AppCoinsSDKErrorData(error: error).dictionaryRepresentation])
                     return
                 }
@@ -488,7 +488,7 @@ public struct AppCoinsSDKErrorData {
                 completion(response)
             } catch {
                 guard let error = error as? AppCoinsSDKError else {
-                    let unknownError: AppCoinsSDKError = .unknown(message: "Unknown Error", description: "Unknown Error at UnityPlugin.swift:confirmPurchaseIntent")
+                    let unknownError: AppCoinsSDKError = .unknown("Unknown Error at UnityPlugin.swift:confirmPurchaseIntent")
                     completion(["State": "failed", "Error": AppCoinsSDKErrorData(error: unknownError).dictionaryRepresentation])
                     return
                 }

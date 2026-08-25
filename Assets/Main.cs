@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Networking;
 using UnityEngine.Purchasing;
+using AppCoins.Unity;
 
 // ================================================================================================
 // StoreKit In-App Purchases via Unity IAP 5.x - Trivial Drive
@@ -80,6 +81,9 @@ public class Main : MonoBehaviour
         if (storeController != null) {
             return; // Already initialized
         }
+
+        var selectedStore = await AppCoinsIAP.ConfigureStoreAsync(AppCoinsStoreMode.Automatic);
+        Debug.Log("Selected store: " + selectedStore);
 
         storeController = UnityIAPServices.StoreController();
 
@@ -251,29 +255,43 @@ public class Main : MonoBehaviour
     // SERVER-SIDE VERIFICATION
     // ============================================================================================
 
-    // Verifies a purchase on your backend server to prevent fraud.
-    //
-    // WHY THIS IS IMPORTANT:
-    // - Prevents fraudulent purchases and chargebacks
-    // - Ensures purchase data hasn't been tampered with
-    // - Required for high-value items, currency, or consumables
-    //
-    // IMPLEMENTATION:
-    // 1. Replace the URL with your own server endpoint.
-    // 2. Forward the Apple receipt payload to your server.
-    // 3. Your server calls Apple's App Store Server API (or the legacy verifyReceipt endpoint)
-    //    to confirm the receipt is genuine and matches the expected product.
-    // 4. Return success only if Apple confirms the purchase is valid.
+    // Verifies a purchase on the backend server to prevent fraud.
+    // Routes to the AppCoins or Apple endpoint based on which store processed the purchase.
     async public Task<bool> VerifyPurchaseOnServer(string productId, IOrderInfo orderInfo) {
-        string url = "https://api.ios.trivialdrive.aptoide.com/iap/apple/validate";
+        if (AppCoinsIAP.SelectedStore == AppCoinsIAP.AppCoinsStoreName) {
+            return await VerifyAppCoinsPurchaseOnServer(productId, orderInfo.TransactionID);
+        } else {
+            return await VerifyApplePurchaseOnServer(productId, orderInfo.TransactionID);
+        }
+    }
 
-        var body = new PurchaseValidationRequest {
+    private async Task<bool> VerifyAppCoinsPurchaseOnServer(string productId, string transactionId) {
+        string url = "https://api.ios.trivialdrive.aptoide.com/iap/aptoide/validate";
+
+        var body = new AptoideValidationRequest {
             productId = productId,
-            transactionId = orderInfo.TransactionID,
-            receipt = orderInfo.Receipt,
+            transactionId = transactionId,
             bundleId = Application.identifier
         };
-        byte[] bodyBytes = Encoding.UTF8.GetBytes(JsonUtility.ToJson(body));
+        return await PostValidationRequest(url, JsonUtility.ToJson(body));
+    }
+
+    private async Task<bool> VerifyApplePurchaseOnServer(string productId, string transactionId) {
+        string url = "https://api.ios.trivialdrive.aptoide.com/iap/apple/validate";
+
+        var body = new AppleValidationRequest {
+            productId = productId,
+            transactionId = transactionId,
+            bundleId = Application.identifier
+        };
+        return await PostValidationRequest(url, JsonUtility.ToJson(body));
+    }
+
+    private async Task<bool> PostValidationRequest(string url, string json) {
+        Debug.Log($"[Verify] POST {url}");
+        Debug.Log($"[Verify] Body: {json}");
+
+        byte[] bodyBytes = Encoding.UTF8.GetBytes(json);
 
         using (UnityWebRequest webRequest = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST)) {
             webRequest.uploadHandler = new UploadHandlerRaw(bodyBytes);
@@ -282,25 +300,33 @@ public class Main : MonoBehaviour
 
             var operation = webRequest.SendWebRequest();
 
-            // Wait for the request to complete
             while (!operation.isDone)
                 await Task.Yield();
 
+            string responseBody = webRequest.downloadHandler?.text ?? "(no body)";
+
             if (webRequest.result == UnityWebRequest.Result.Success && webRequest.responseCode == 200) {
+                Debug.Log($"[Verify] Success (200)");
                 return true;
             } else {
-                Debug.Log($"Failed to verify purchase: {webRequest.error}");
+                Debug.LogError($"[Verify] Failed — HTTP {webRequest.responseCode}: {webRequest.error}");
+                Debug.LogError($"[Verify] Response body: {responseBody}");
                 return false;
             }
         }
     }
 
-    // Payload sent to the validation endpoint.
     [Serializable]
-    private class PurchaseValidationRequest {
+    private class AppleValidationRequest {
         public string productId;
         public string transactionId;
-        public string receipt;
+        public string bundleId;
+    }
+
+    [Serializable]
+    private class AptoideValidationRequest {
+        public string productId;
+        public string transactionId;
         public string bundleId;
     }
 
